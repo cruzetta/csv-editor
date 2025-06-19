@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor de Excel para CSV</title>
+    <!-- Incluindo Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Incluindo a biblioteca SheetJS (xlsx.full.min.js) para ler arquivos Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilização para a área de arrastar e soltar */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .drop-zone.drag-over {
+            background-color: #e2e8f0;
+            border-color: #4f46e5;
+        }
+        /* Estilização para células da tabela editáveis */
+        td[contenteditable="true"] {
+            transition: background-color 0.2s;
+            background-color: #f1f5f9;
+        }
+        td[contenteditable="true"]:focus {
+            background-color: #ffffff;
+            outline: 2px solid #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-xl shadow-lg p-6 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Conversor de Excel para CSV</h1>
+            <p class="text-gray-600 mt-2">Importe, verifique, edite e exporte seus dados com facilidade.</p>
+        </header>
+
+        <main>
+            <!-- Área de Upload -->
+            <div id="uploadContainer" class="mb-8">
+                <label for="fileInput" class="block text-lg font-semibold mb-4 text-center text-gray-700">1. Escolha seu arquivo Excel</label>
+                <div id="dropZone" class="drop-zone w-full p-8 md:p-12 text-center rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls, .csv">
+                    <div class="text-gray-500">
+                        <svg class="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="mt-4 text-lg">Arraste e solte o arquivo aqui</p>
+                        <p class="text-sm mt-1">ou</p>
+                        <p class="mt-2 font-semibold text-indigo-600">Clique para selecionar</p>
+                        <p class="text-xs text-gray-400 mt-4">Suporta .xlsx, .xls</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spinner de Carregamento -->
+            <div id="loader" class="text-center my-8 hidden">
+                <div role="status" class="flex justify-center items-center">
+                    <svg aria-hidden="true" class="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-indigo-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0492C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5424 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                    </svg>
+                    <span class="sr-only">Carregando...</span>
+                </div>
+                <p class="mt-4 text-gray-600">Lendo seu arquivo...</p>
+            </div>
+
+            <!-- Área da Tabela de Dados e Exportação -->
+            <div id="dataContainer" class="hidden">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800">2. Verifique e Edite os Dados</h2>
+                    <p class="text-gray-500 mt-1">Clique em qualquer célula para editar seu conteúdo.</p>
+                </div>
+                
+                <!-- Container da tabela com rolagem -->
+                <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
+                    <table id="dataTable" class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <!-- Cabeçalho será preenchido via JS -->
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <!-- Dados serão preenchidos via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-8 text-center">
+                     <h2 class="text-2xl font-semibold text-gray-800 mb-4">3. Exporte para CSV</h2>
+                    <button id="exportBtn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105">
+                        Exportar para CSV
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Elementos do DOM
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const uploadContainer = document.getElementById('uploadContainer');
+        const loader = document.getElementById('loader');
+        const dataContainer = document.getElementById('dataContainer');
+        const exportBtn = document.getElementById('exportBtn');
+        const dataTable = document.getElementById('dataTable');
+
+        // Adiciona eventos para a área de arrastar e soltar
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                fileInput.files = files;
+                handleFileSelect({ target: { files } });
+            }
+        });
+
+        // Event listener para seleção de arquivo
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Esconde a área de upload e mostra o loader
+                uploadContainer.classList.add('hidden');
+                loader.classList.remove('hidden');
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = e.target.result;
+                        // Usa a biblioteca SheetJS para ler o arquivo
+                        const workbook = XLSX.read(data, { type: 'binary' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        // Converte a planilha em um array de objetos JSON
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                        // Simula um pequeno atraso para o loader ser visível
+                        setTimeout(() => {
+                            renderTable(jsonData);
+                            loader.classList.add('hidden');
+                            dataContainer.classList.remove('hidden');
+                        }, 500);
+
+                    } catch (error) {
+                        console.error("Erro ao processar o arquivo:", error);
+                        alert("Ocorreu um erro ao ler o arquivo. Verifique se o formato é válido.");
+                        // Restaura a UI
+                        loader.classList.add('hidden');
+                        uploadContainer.classList.remove('hidden');
+                    }
+                };
+                reader.onerror = function() {
+                    alert('Não foi possível ler o arquivo.');
+                    loader.classList.add('hidden');
+                    uploadContainer.classList.remove('hidden');
+                }
+                reader.readAsBinaryString(file);
+            }
+        }
+
+        function renderTable(data) {
+            if (!data || data.length === 0) {
+                dataTable.innerHTML = '<tr><td class="p-4 text-center">Nenhum dado encontrado no arquivo.</td></tr>';
+                return;
+            }
+
+            const tableHead = dataTable.querySelector('thead');
+            const tableBody = dataTable.querySelector('tbody');
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            // Cria o cabeçalho da tabela
+            const headerRow = document.createElement('tr');
+            const headers = data[0];
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.className = 'px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider';
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+            tableHead.appendChild(headerRow);
+
+            // Cria as linhas de dados da tabela
+            const rows = data.slice(1);
+            rows.forEach(rowData => {
+                if (rowData.length > 0) { // Garante que a linha não esteja completamente vazia
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    rowData.forEach(cellData => {
+                        const td = document.createElement('td');
+                        td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-700';
+                        td.textContent = cellData;
+                        // Torna a célula editável
+                        td.setAttribute('contenteditable', 'true');
+                        tr.appendChild(td);
+                    });
+                    tableBody.appendChild(tr);
+                }
+            });
+        }
+        
+        // Event listener para o botão de exportação
+        exportBtn.addEventListener('click', exportTableToCSV);
+
+        function exportTableToCSV() {
+            const rows = document.querySelectorAll('#dataTable tr');
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            rows.forEach(row => {
+                const rowData = [];
+                // Seleciona tanto 'th' (cabeçalho) quanto 'td' (células de dados)
+                const cols = row.querySelectorAll('th, td');
+                
+                cols.forEach(col => {
+                    let data = col.innerText;
+                    // Escapa aspas duplas dentro do texto substituindo por duas aspas duplas
+                    data = data.replace(/"/g, '""');
+                    // Se o dado contém vírgula, nova linha ou aspas, envolve com aspas duplas
+                    if (data.includes(',') || data.includes('"') || data.includes('\n')) {
+                        data = `"${data}"`;
+                    }
+                    rowData.push(data);
+                });
+                csvContent += rowData.join(',') + '\r\n';
+            });
+
+            // Cria um link de download e o aciona
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', 'dados_exportados.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
